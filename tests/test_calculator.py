@@ -1,6 +1,4 @@
 import unittest
-import sys
-import os
 from src.calculator import add, subtract, multiply, divide
 
 
