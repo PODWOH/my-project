@@ -1,5 +1,5 @@
 import unittest
-from src.calculator import add, subtract, multiply, divide
+from src.calculator import add, subtract, multiply, divide, factorial, power
 
 
 class TestCalculator(unittest.TestCase):
@@ -23,6 +23,16 @@ class TestCalculator(unittest.TestCase):
     def test_divide_by_zero(self):
         with self.assertRaises(ValueError):
             divide(10, 0)
+
+    def test_power(self):
+        self.assertEqual(power(2, 3), 8)
+        self.assertEqual(power(5, 0), 1)
+
+    def test_factorial(self):
+        self.assertEqual(factorial(5), 120)
+        self.assertEqual(factorial(0), 1)
+        with self.assertRaises(ValueError):
+            factorial(-1)
 
 
 if __name__ == '__main__':
