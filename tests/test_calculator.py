@@ -1,8 +1,7 @@
 import unittest
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
-from calculator import add, subtract, multiply, divide
+from src.calculator import add, subtract, multiply, divide
 
 
 class TestCalculator(unittest.TestCase):
@@ -30,4 +29,3 @@ class TestCalculator(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-    
