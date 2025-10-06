@@ -137,27 +137,19 @@ jobs:
   auto-merge:
     name: "Auto-merge: Enable for PR"
     runs-on: ubuntu-latest
-    # Зависим только от критических проверок
     needs: [test, build, lint]
-    
-    # Упрощенные условия - запускаем для любого PR в main
-    if: |
-      github.event_name == 'pull_request' && 
-      github.base_ref == 'refs/heads/main'
-    
+    if: github.event_name == 'pull_request' && github.base_ref == 'refs/heads/main'
+
     permissions:
       pull-requests: write
       contents: write
       checks: read
-      
+
     steps:
       - name: Wait for status checks
-        run: |
-          echo "Ожидание завершения всех статус-проверок..."
-          sleep 30
-          
-      - name: Get PR details
-        id: pr-info
+        run: sleep 30
+
+      - name: Enable Auto-merge
         uses: actions/github-script@v6
         with:
           script: |
@@ -166,65 +158,35 @@ jobs:
               repo: context.repo.repo,
               pull_number: context.issue.number
             });
-            
-            return {
-              mergeable: pr.mergeable,
-              state: pr.state,
-              title: pr.title,
-              head_ref: pr.head.ref,
-              base_ref: pr.base.ref
-            };
-          result-encoding: json
-          
-      - name: Debug PR info
-        run: |
-          echo "PR State: ${{ fromJson(steps.pr-info.outputs.result).state }}"
-          echo "Mergeable: ${{ fromJson(steps.pr-info.outputs.result).mergeable }}"
-          echo "Head Ref: ${{ fromJson(steps.pr-info.outputs.result).head_ref }}"
-          echo "Base Ref: ${{ fromJson(steps.pr-info.outputs.result).base_ref }}"
-          
-      - name: Enable Auto-merge (если PR можно мержить)
-        if: |
-          fromJson(steps.pr-info.outputs.result).state == 'open' &&
-          fromJson(steps.pr-info.outputs.result).mergeable == true
-        uses: actions/github-script@v6
-        with:
-          script: |
-            try {
-              await github.rest.pulls.enableAutomerge({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: context.issue.number,
-                merge_method: 'squash'
-              });
-              
-              console.log('✅ Auto-merge успешно активирован!');
-              
-              // Добавляем комментарий в PR
+
+            if (pr.mergeable && pr.state === 'open') {
+              try {
+                await github.rest.pulls.enableAutomerge({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.issue.number,
+                  merge_method: 'squash'
+                });
+
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: '🎉 Все проверки пройдены! Auto-merge активирован. PR будет автоматически слит в основную ветку.'
+                });
+              } catch (error) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: `⚠️ Ошибка при активации auto-merge: ${error.message}. Проверьте настройки защиты ветки.`
+                });
+              }
+            } else {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
-                body: '🎉 Все проверки пройдены! Auto-merge активирован. PR будет автоматически слит в основную ветку.'
-              });
-              
-            } catch (error) {
-              console.log('❌ Ошибка при активации auto-merge:', error.message);
-              
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: `⚠️ Auto-merge не удалось активировать: ${error.message}. Проверьте настройки защиты ветки.`
+                body: '❌ PR нельзя автоматически смержить. Проверьте статус или наличие конфликтов.'
               });
             }
-            
-      - name: Skip auto-merge (если PR нельзя мержить)
-        if: |
-          fromJson(steps.pr-info.outputs.result).state != 'open' ||
-          fromJson(steps.pr-info.outputs.result).mergeable != true
-        run: |
-          echo "❌ PR нельзя автоматически смержить"
-          echo "State: ${{ fromJson(steps.pr-info.outputs.result).state }}"
-          echo "Mergeable: ${{ fromJson(steps.pr-info.outputs.result).mergeable }}"
-          echo "Auto-merge пропущен"
