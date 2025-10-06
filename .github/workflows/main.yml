@@ -136,44 +136,22 @@ jobs:
 
 
   auto-merge:
-    name: "Auto-merge: Force Merge PR"
     runs-on: ubuntu-latest
-    needs: [test, build, lint]
-    if: github.event_name == 'pull_request' && github.base_ref == 'refs/heads/main'
-  
-    permissions:
-      pull-requests: write
-      contents: write
-      checks: read
-  
+    needs: test
+    
     steps:
-      - name: Wait for status checks
-        run: sleep 30
-  
-      - name: Merge PR
-        uses: actions/github-script@v6
-        with:
-          script: |
-            try {
-              await github.rest.pulls.merge({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: context.issue.number,
-                merge_method: 'squash'
-              });
-  
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: '🎉 PR успешно слит в основную ветку.'
-              });
-            } catch (error) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: `⚠️ Ошибка при мердже PR: ${error.message}.`
-              });
-            }
-
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Generate documentation
+      run: |
+        mkdir -p docs_build
+        cp README.md docs_build/
+        cp -r docs/* docs_build/ 2>/dev/null || true
+        echo "Documentation generated at $(date)" > docs_build/build_info.txt
+        
+    - name: Upload documentation
+      uses: actions/upload-artifact@v4
+      with:
+        name: documentation
+        path: docs_build/
