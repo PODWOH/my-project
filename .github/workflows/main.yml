@@ -133,60 +133,47 @@ jobs:
         name: documentation
         path: docs_build/
 
-        
+
+
   auto-merge:
-    name: "Auto-merge: Enable for PR"
+    name: "Auto-merge: Force Merge PR"
     runs-on: ubuntu-latest
     needs: [test, build, lint]
     if: github.event_name == 'pull_request' && github.base_ref == 'refs/heads/main'
-
+  
     permissions:
       pull-requests: write
       contents: write
       checks: read
-
+  
     steps:
       - name: Wait for status checks
         run: sleep 30
-
-      - name: Enable Auto-merge
+  
+      - name: Merge PR
         uses: actions/github-script@v6
         with:
           script: |
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number
-            });
-
-            if (pr.mergeable && pr.state === 'open') {
-              try {
-                await github.rest.pulls.enableAutomerge({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: context.issue.number,
-                  merge_method: 'squash'
-                });
-
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: '🎉 Все проверки пройдены! Auto-merge активирован. PR будет автоматически слит в основную ветку.'
-                });
-              } catch (error) {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: `⚠️ Ошибка при активации auto-merge: ${error.message}. Проверьте настройки защиты ветки.`
-                });
-              }
-            } else {
+            try {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                merge_method: 'squash'
+              });
+  
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
-                body: '❌ PR нельзя автоматически смержить. Проверьте статус или наличие конфликтов.'
+                body: '🎉 PR успешно слит в основную ветку.'
+              });
+            } catch (error) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `⚠️ Ошибка при мердже PR: ${error.message}.`
               });
             }
+
